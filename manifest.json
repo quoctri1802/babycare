@@ -2,7 +2,7 @@
   "name": "Mẹ & Bé: Nhắc Nhở Thông Minh",
   "short_name": "Mẹ & Bé",
   "description": "Ứng dụng nhắc nhở chăm sóc bé thông minh dành cho mẹ.",
-  "start_url": ".",
+  "start_url": "./index.html",
   "display": "standalone",
   "background_color": "#FFD1DC",
   "theme_color": "#FFD1DC",
