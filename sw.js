@@ -1,10 +1,9 @@
 const CACHE_NAME = 'baby-care-v2';
 const STATIC_ASSETS = [
-  './',
-  './index.html',
-  './manifest.json',
-  './style.css',
-  './main.js'
+  'index.html',
+  'manifest.json',
+  'style.css',
+  'main.js'
 ];
 
 // Cài đặt và lưu trữ các file tĩnh cơ bản

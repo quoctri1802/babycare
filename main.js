@@ -260,7 +260,7 @@ window.onload = () => {
     load(); renderTasks();
     if (Notification.permission !== 'granted') document.getElementById('notification-banner').classList.remove('hidden');
     document.getElementById('enable-notifications').onclick = () => { Notification.requestPermission().then(p => { if (p==='granted') document.getElementById('notification-banner').classList.add('hidden'); }); };
-    if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js');
+    if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js');
 };
 
 window.stopAlert = () => stopAudio();
