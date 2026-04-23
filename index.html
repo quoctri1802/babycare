@@ -86,6 +86,10 @@
         .tip-title { font-weight: 700; font-size: 1.1rem; margin-bottom: 10px; color: #2D3436; }
         .tip-content { font-size: 0.9rem; line-height: 1.6; color: #666; }
 
+        /* Spinner */
+        .spinner { width: 24px; height: 24px; border: 3px solid rgba(255,133,161,0.2); border-top-color: var(--p1); border-radius: 50%; animation: spin 1s linear infinite; display: inline-block; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
         @media (max-width: 600px) { h1 { font-size: 2rem; } .card { padding: 30px; } }
     </style>
 </head>
@@ -125,6 +129,17 @@
                 <button class="btn btn-dark" id="settings-btn" style="width: auto; padding: 12px 30px; border-radius: 50px;">
                     <i data-lucide="settings"></i> Cài đặt lịch nhắc
                 </button>
+            </div>
+
+            <!-- Nhật ký sinh hoạt -->
+            <div class="form-card" style="margin-top: 40px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                    <h2 style="font-size: 1.3rem; font-weight: 700;">Nhật ký hôm nay</h2>
+                    <button onclick="clearLogs()" style="background: none; border: none; color: #999; font-size: 0.8rem; cursor: pointer;">Xóa hết</button>
+                </div>
+                <div id="activity-logs" style="display: flex; flex-direction: column; gap: 12px;">
+                    <!-- Logs will be injected here -->
+                </div>
             </div>
         </div>
 
@@ -181,7 +196,16 @@
                     </div>
                 </div>
             </div>
-            <h2 style="margin: 25px 0 15px; font-weight: 700; font-size: 1.2rem;">Gợi ý cho Mẹ & Bé</h2>
+            <h2 style="margin: 25px 0 15px; font-weight: 700; font-size: 1.2rem;">Tra cứu kiến thức</h2>
+            <div class="form-card" style="padding: 15px; display: flex; gap: 10px; margin-bottom: 20px; border: 2px solid #FAD0C4;">
+                <input type="text" id="wiki-search-input" placeholder="Ví dụ: Dinh dưỡng cho bé..." style="flex: 1; border: none; outline: none; font-size: 0.95rem;">
+                <button onclick="searchWiki()" style="background: linear-gradient(135deg, #FF9A9E, #FAD0C4); color: white; border: none; padding: 10px 15px; border-radius: 12px; cursor: pointer;">
+                    <i data-lucide="search" style="width: 18px; height: 18px;"></i>
+                </button>
+            </div>
+            <div id="wiki-results" style="margin-bottom: 30px;"></div>
+
+            <h2 style="margin: 25px 0 15px; font-weight: 700; font-size: 1.2rem;">Gợi ý cho bé ${state.profile.name || ''}</h2>
             <div id="knowledge-list"></div>
         </div>
 
@@ -285,7 +309,8 @@
                 { id: 'pump', name: 'Hút sữa mẹ', icon: 'waves', interval: 120, lastDone: null, color: '#74B9FF' },
                 { id: 'diaper', name: 'Thay bỉm', icon: 'sparkles', interval: 240, lastDone: null, color: '#A29BFE' }
             ],
-            growth: [], vaccines: VACCINE_LIST, profile: { name: '', dob: '', gender: 'none' }
+            growth: [], vaccines: VACCINE_LIST, profile: { name: '', dob: '', gender: 'none' },
+            logs: []
         };
 
         function load() {
@@ -394,7 +419,45 @@
         const getLeft = (t) => t.lastDone ? Math.max(0, Math.floor((t.lastDone + t.interval*60*1000 - Date.now())/1000)) : 0;
         const getProg = (t) => t.lastDone ? getLeft(t) / (t.interval*60) : 0;
         const fmt = (s) => s <= 0 ? "Đến lúc!" : (Math.floor(s/3600) > 0 ? `${Math.floor(s/3600)}h ${Math.floor((s%3600)/60)}m` : `${Math.floor(s/60)}:${(s%60).toString().padStart(2,'0')}`);
-        window.done = (id) => { const t = state.tasks.find(x => x.id === id); if (t) { t.lastDone = Date.now(); save(); renderTasks(); if (audioState.playing === 'alert') stopAudio(); } };
+        window.done = (id) => { 
+            const t = state.tasks.find(x => x.id === id); 
+            if (t) { 
+                t.lastDone = Date.now(); 
+                // Ghi nhật ký
+                if(!state.logs) state.logs = [];
+                state.logs.unshift({ name: t.name, time: new Date().toLocaleTimeString('vi-VN', {hour: '2-digit', minute:'2-digit'}), date: new Date().toLocaleDateString('vi-VN') });
+                if(state.logs.length > 50) state.logs.pop(); // Giới hạn 50 bản ghi
+                save(); renderTasks(); renderLogs();
+                if (audioState.playing === 'alert') stopAudio(); 
+            } 
+        };
+
+        function renderLogs() {
+            const container = document.getElementById('activity-logs');
+            if(!container) return;
+            if(!state.logs || state.logs.length === 0) {
+                container.innerHTML = '<p style="text-align:center; color:#999; font-size:0.9rem;">Chưa có hoạt động nào hôm nay</p>';
+                return;
+            }
+            container.innerHTML = state.logs.map(log => `
+                <div style="background: #F8F9FD; padding: 15px; border-radius: 18px; display: flex; justify-content: space-between; align-items: center; animation: fadeIn 0.3s ease;">
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        <div style="width: 8px; height: 8px; background: var(--p1); border-radius: 50%;"></div>
+                        <span style="font-weight: 600; font-size: 0.95rem;">${log.name}</span>
+                    </div>
+                    <div style="text-align: right;">
+                        <div style="font-weight: 700; color: var(--p1); font-size: 0.95rem;">${log.time}</div>
+                        <div style="font-size: 0.75rem; color: #999;">${log.date}</div>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        window.clearLogs = () => {
+            if(confirm('Mẹ có chắc muốn xóa hết nhật ký không?')) {
+                state.logs = []; save(); renderLogs();
+            }
+        };
 
         window.addGrowth = () => {
             const w = document.getElementById('growth-weight').value, h = document.getElementById('growth-height').value;
@@ -422,6 +485,33 @@
             const filtered = KNOWLEDGE_BASE.filter(k => age >= k.minAge && age <= k.maxAge);
             document.getElementById('knowledge-list').innerHTML = filtered.map(k => `<div class="tip-card"><span class="tip-tag">${k.tag}</span><div class="tip-title">${k.title}</div><div class="tip-content">${k.content}</div></div>`).join('') || '<p style="text-align:center; color:#999;">Cập nhật ngày sinh bé mẹ nhé!</p>';
         }
+
+        window.searchWiki = async () => {
+            const query = document.getElementById('wiki-search-input').value;
+            if(!query) return alert('Mẹ hãy nhập nội dung cần tìm nhé!');
+            const container = document.getElementById('wiki-results');
+            container.innerHTML = '<div style="text-align:center; padding: 20px;"><div class="spinner"></div> Đang tìm kiếm...</div>';
+            
+            try {
+                const response = await fetch(`https://vi.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(query)}`);
+                const data = await response.json();
+                if(data.title && data.extract) {
+                    container.innerHTML = `
+                        <div class="tip-card" style="border-left-color: #74B9FF; animation: slideUp 0.4s ease;">
+                            <span class="tip-tag" style="background: #74B9FF22; color: #74B9FF;">Kết quả tra cứu</span>
+                            <div class="tip-title">${data.title}</div>
+                            <div class="tip-content">${data.extract}</div>
+                            <a href="${data.content_urls.desktop.page}" target="_blank" style="color: var(--p1); font-size: 0.8rem; font-weight: 600; text-decoration: none; margin-top: 10px; display: inline-block;">Đọc thêm trên Wikipedia →</a>
+                        </div>
+                    `;
+                } else {
+                    container.innerHTML = '<p style="text-align:center; color:#999; font-size: 0.9rem;">Không tìm thấy thông tin chính xác. Mẹ thử từ khóa khác nhé!</p>';
+                }
+            } catch (error) {
+                container.innerHTML = '<p style="text-align:center; color:#999; font-size: 0.9rem;">Lỗi kết nối. Mẹ hãy kiểm tra mạng nhé!</p>';
+            }
+            lucide.createIcons();
+        };
 
         window.saveProfile = () => {
             state.profile.name = document.getElementById('baby-name').value;
@@ -461,7 +551,7 @@
         }, 1000);
 
         window.onload = () => {
-            load(); renderTasks();
+            load(); renderTasks(); renderLogs();
             if (Notification.permission !== 'granted') document.getElementById('notification-banner').classList.remove('hidden');
             document.getElementById('enable-notifications').onclick = () => { Notification.requestPermission().then(p => { if (p==='granted') document.getElementById('notification-banner').classList.add('hidden'); }); };
             if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js');
